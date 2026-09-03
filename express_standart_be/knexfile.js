@@ -1,0 +1,95 @@
+/**
+ * @copyright (c) 2026 PT Marstech Global (info@marstech.co.id)
+ * @project Standard
+ * @file page.tsx
+ * @description File konfigurasi database untuk Knex.js
+ * 
+ * @author Fadil <risqullah.s.fadhilah@gmail.com>
+ * @created 2026-07-14
+ * 
+ * @contributors
+ * - Fadil <risqullah.s.fadhilah@gmail.com>
+ * 
+ * @lastModified Fadil (2026-08-03)
+ * @version 1.0.1
+ */
+
+
+import 'dotenv/config';
+import pg from 'pg';
+
+const IS_ONSITE = process.env.APP_PREMISE === "ONSITE";
+const TARGET_TZ = IS_ONSITE ? (process.env.APP_TZ || 'Asia/Jakarta') : 'UTC';
+const MYSQL_TZ = IS_ONSITE ? 'local' : '+00:00';
+
+const parseFn = (val) => val;
+pg.types.setTypeParser(pg.types.builtins.TIMESTAMP, parseFn);
+pg.types.setTypeParser(pg.types.builtins.TIMESTAMPTZ, parseFn);
+pg.types.setTypeParser(pg.types.builtins.DATE, parseFn);
+
+const getConnectionConfig = ({ dbms, host, port, username, password, database }) => {
+  const baseConfig = {
+    host: host || "localhost",
+    port: Number(port) || (dbms === "pg" || dbms === "postgresql" ? 5432 : 3306),
+    user: username || "",
+    password: password || "",
+    database: database || "",
+  };
+
+  if (dbms === "mysql" || dbms === "mysql2") {
+    return {
+      ...baseConfig,
+      timezone: MYSQL_TZ,
+      dateStrings: false,
+
+    };
+  }
+
+  if (dbms === "pg" || dbms === "postgresql") {
+    return {
+      ...baseConfig,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
+    };
+  }
+
+  return baseConfig;
+};
+
+
+const knexConfig = {
+  default: {
+    client: process.env.DB_DBMS || "mysql2",
+    connection: getConnectionConfig({
+      dbms: process.env.DB_DBMS,
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT,
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE,
+    }),
+    pool: {
+      min: 2,
+      max: process.env.DB_DBMS === "pg" ? 10 : 20,
+      idleTimeoutMillis: 30000,
+
+      afterCreate: function (conn, done) {
+        const dbms = process.env.DB_DBMS;
+        if (dbms === "pg" || dbms === "postgresql") {
+          conn.query(`SET TIME ZONE '${TARGET_TZ}';`, function (err) {
+            done(err, conn);
+          });
+        } else {
+          done(null, conn);
+        }
+      }
+    }
+  },
+};
+
+const configuration = {
+  development: knexConfig.default,
+  production: knexConfig.default,
+  test: knexConfig.default,
+};
+
+export default configuration;
