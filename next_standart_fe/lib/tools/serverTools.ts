@@ -110,6 +110,14 @@ const routeMiddleware = async (searchUrl: string) => {
     return '00';
 }
 
+export const getApiBaseUrl = (): string => {
+    let baseUrl = (process.env.API_URL || process.env.NEXT_PUBLIC_URL_API || 'http://localhost:8000/api/v1').trim().replace(/\/+$/, '');
+    if (!baseUrl.endsWith('/api/v1')) {
+        baseUrl = `${baseUrl}/api/v1`;
+    }
+    return baseUrl;
+};
+
 const refreshToken = async (userCode: string, refreshToken: string, rememberMe: string) => {
     const timestamp = formatDateISO(new Date());
 
@@ -122,7 +130,7 @@ const refreshToken = async (userCode: string, refreshToken: string, rememberMe: 
     const encryptedBody = credentialPayload;
 
     const refreshResponse = await axios.post(
-        `${process.env.API_URL}/auth/refresh-token`,
+        `${getApiBaseUrl()}/auth/refresh-token`,
         encryptedBody,
         {
             headers: {

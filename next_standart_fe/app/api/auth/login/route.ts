@@ -61,13 +61,18 @@ export const POST = async (req: NextRequest) => {
             remember_me: credentials?.remember_me as string,
         };
 
+        let baseUrl = (process.env.API_URL || process.env.NEXT_PUBLIC_URL_API || 'http://localhost:8000/api/v1').trim().replace(/\/+$/, '');
+        if (!baseUrl.endsWith('/api/v1')) {
+            baseUrl = `${baseUrl}/api/v1`;
+        }
+
         const headers = {
             'Content-Type': 'application/json',
             'X-Timestamp': formatDateISO(new Date()),
         };
 
         const result = await axios.post<AuthResponse & User>(
-            `${process.env.API_URL}/auth/login`,
+            `${baseUrl}/auth/login`,
             credential,
             { headers }
         );
@@ -111,23 +116,23 @@ export const POST = async (req: NextRequest) => {
         );
 
     } catch (error: any) {
+        console.error('[API_AUTH_LOGIN_ERROR]', error?.message, error?.response?.data);
         let errorMessage = 'Login gagal';
-        // console.log(error)
 
         if (axios.isAxiosError(error)) {
-            errorMessage = error.response?.data?.message || error.message || 'Login gagal';
+            errorMessage = error.response?.data?.message || (error.message && error.message !== 'Error' ? error.message : '') || 'Koneksi ke backend server gagal';
         } else if (error instanceof Error) {
-            errorMessage = error.message;
+            errorMessage = error.message && error.message !== 'Error' ? error.message : 'Koneksi ke server gagal';
         }
 
-        const isConnectionRefused = /ECONNREFUSED/.test(errorMessage);
+        const isConnectionRefused = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|Network Error/i.test(errorMessage);
         const isIPExposed = /(\d{1,3}\.){3}\d{1,3}(:\d{1,5})?/.test(errorMessage);
 
-        if (isConnectionRefused && isIPExposed) {
+        if (isConnectionRefused || isIPExposed || errorMessage === 'Koneksi ke backend server gagal') {
             return NextResponse.json(
                 {
                     status: '99',
-                    message: 'Koneksi ke server gagal. Silakan coba beberapa saat lagi.',
+                    message: 'Koneksi ke server backend gagal. Pastikan backend aktif dan URL API terkonfigurasi dengan benar.',
                     datetime: formatDateISO(new Date()),
                 },
                 { status: 500 }
@@ -137,10 +142,10 @@ export const POST = async (req: NextRequest) => {
         return NextResponse.json(
             {
                 status: '99',
-                message: errorMessage,
+                message: errorMessage || 'Login gagal, periksa kembali data Anda',
                 datetime: formatDateISO(new Date()),
             },
-            { status: 500 }
+            { status: error?.response?.status || 500 }
         );
     }
 }

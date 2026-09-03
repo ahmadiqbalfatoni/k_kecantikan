@@ -15,6 +15,7 @@
  */
 
 import { formatDateISO, formatDateSystem } from "@/lib/tools/dateTools";
+import { getApiBaseUrl } from "@/lib/tools/serverTools";
 import axios from "axios";
 import { jwtVerify, SignJWT } from "jose";
 import { User } from "next-auth";
@@ -78,8 +79,9 @@ export const POST = async (req: NextRequest) => {
             ...customHeader,
         };
 
+        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
         const result = await axios.post(
-            `${process.env.API_URL}${endpoint}`,
+            `${getApiBaseUrl()}${cleanEndpoint}`,
             body,
             { headers: requestHeaders }
         );

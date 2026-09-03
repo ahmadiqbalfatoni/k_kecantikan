@@ -28,15 +28,16 @@ import Logger from "./middleware/logger.js";
 
 const app = express();
 
-const allowedOrigins = process.env.ORIGIN.split(",").map((origin) => origin.trim());
+const rawOrigins = process.env.ORIGIN || "http://localhost:3000,http://127.0.0.1:3000,https://kkecantikan-production.up.railway.app";
+const allowedOrigins = rawOrigins.split(",").map((origin) => origin.trim());
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes("*") || origin.endsWith(".railway.app") || origin.includes("localhost") || origin.includes("127.0.0.1")) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        callback(new Error(`Not allowed by CORS: ${origin}`));
       }
     },
     credentials: true,

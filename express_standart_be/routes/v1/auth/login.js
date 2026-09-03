@@ -97,9 +97,10 @@ router.post("/", async (req, res) => {
       .first();
 
     if (oUser) {
-      const secret = process.env.USER_SECRET;
+      const secret = process.env.USER_SECRET || "random";
+      const userKey = process.env.USER_KEY || "random";
       const cPassword =
-        process.env.USER_KEY + oUser.user_code + oPayload.password;
+        userKey + oUser.user_code + oPayload.password;
 
       if (!hashEquals(hmac(cPassword, secret, "sha512"), oUser.password)) {
         return res.status(400).json({
@@ -157,6 +158,7 @@ router.post("/", async (req, res) => {
       datetime: formatDateSystem(),
     });
   } catch (error) {
+    console.error('[AUTH_LOGIN_ERROR]', error);
     const oResult = {
       status: status.BAD_REQUEST,
       message: "Sistem sedang maintenance harap tunggu sebentar",

@@ -15,7 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { clearSessionCookies } from '@/lib/tools/serverTools';
+import { clearSessionCookies, getApiBaseUrl } from '@/lib/tools/serverTools';
 import axios from 'axios';
 import { formatDateISO, formatDateSystem } from '@/lib/tools/dateTools';
 import { SignJWT } from 'jose';
@@ -110,9 +110,10 @@ async function postCRUD(request: NextRequest, accessToken: string) {
         };
 
         delete requestHeaders['X-Level'];
+        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
         const result = await axios.post(
-            `${process.env.API_URL}${endpoint}`,
+            `${getApiBaseUrl()}${cleanEndpoint}`,
             body,
             {
                 headers: requestHeaders,

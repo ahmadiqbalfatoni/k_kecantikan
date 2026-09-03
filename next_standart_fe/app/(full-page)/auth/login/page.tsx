@@ -62,7 +62,10 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       const e = error?.response?.data || error;
-      showError(toast, e.message || 'Gagal masuk ke sistem, periksa kembali username dan password Anda');
+      const errorMsg = (e?.message && e.message !== 'Error')
+        ? e.message
+        : 'Gagal terhubung ke server. Periksa koneksi backend atau kredensial Anda.';
+      showError(toast, errorMsg);
     } finally {
       setState((p) => ({ ...p, load: false }));
     }

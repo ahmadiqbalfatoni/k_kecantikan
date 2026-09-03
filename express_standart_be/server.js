@@ -17,7 +17,7 @@
 
 import app from "./app.js";
 
-const port = process.env.APP_PORT || 8010;
+const port = process.env.PORT || process.env.APP_PORT || 8010;
 
 app
   .listen(port, () => {
