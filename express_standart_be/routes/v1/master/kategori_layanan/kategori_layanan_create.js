@@ -50,14 +50,31 @@ router.post("/", async (req, res) => {
     let kodeKategori = "";
 
     await DB.transaction(async (trx) => {
-      // Generate kode_kategori_layanan
-      const lastRecord = await trx("mst_kategori_layanan").orderBy("id", "desc").first();
-      let nextSeq = 1;
-      if (lastRecord?.kode_kategori_layanan) {
-        const num = parseInt(lastRecord.kode_kategori_layanan.replace("KATLAY-", "")) || 0;
-        nextSeq = num + 1;
+      const rows = await trx("mst_kategori_layanan")
+        .where("kode_kategori_layanan", "like", "KATLAY-%")
+        .select("kode_kategori_layanan");
+
+      let maxNum = 0;
+      for (const row of rows) {
+        if (row.kode_kategori_layanan) {
+          const match = String(row.kode_kategori_layanan).match(/^KATLAY-(\d+)$/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+          }
+        }
       }
-      kodeKategori = `KATLAY-${String(nextSeq).padStart(3, "0")}`;
+
+      let candidateNum = maxNum + 1;
+      while (true) {
+        const candidateKode = `KATLAY-${String(candidateNum).padStart(3, "0")}`;
+        const exists = await trx("mst_kategori_layanan").where("kode_kategori_layanan", candidateKode).first();
+        if (!exists) {
+          kodeKategori = candidateKode;
+          break;
+        }
+        candidateNum++;
+      }
 
       const oData = {
         kode_kategori_layanan: kodeKategori,

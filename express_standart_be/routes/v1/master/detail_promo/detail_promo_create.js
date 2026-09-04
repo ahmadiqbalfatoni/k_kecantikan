@@ -59,15 +59,35 @@ router.post("/", async (req, res) => {
     const insertedCodes = [];
 
     await DB.transaction(async (trx) => {
-      const last = await trx("mst_detail_promo").orderBy("id", "desc").first();
-      let n = 1;
-      if (last?.kode_detail_promo) {
-        n = (parseInt(last.kode_detail_promo.replace("DPRM-", "")) || 0) + 1;
+      const rows = await trx("mst_detail_promo")
+        .where("kode_detail_promo", "like", "DPRM-%")
+        .select("kode_detail_promo");
+
+      let maxNum = 0;
+      for (const row of rows) {
+        if (row.kode_detail_promo) {
+          const match = String(row.kode_detail_promo).match(/^DPRM-(\d+)$/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+          }
+        }
       }
 
+      let n = maxNum + 1;
+
       for (const itemCode of itemsToAdd) {
-        const kode = `DPRM-${String(n).padStart(4, "0")}`;
-        n++;
+        let kode = "";
+        while (true) {
+          const candidateKode = `DPRM-${String(n).padStart(4, "0")}`;
+          const exists = await trx("mst_detail_promo").where("kode_detail_promo", candidateKode).first();
+          if (!exists) {
+            kode = candidateKode;
+            n++;
+            break;
+          }
+          n++;
+        }
 
         const oData = {
           kode_detail_promo: kode,

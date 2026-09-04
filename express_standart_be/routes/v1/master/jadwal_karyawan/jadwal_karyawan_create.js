@@ -31,12 +31,31 @@ router.post("/", async (req, res) => {
 
     let kode = "";
     await DB.transaction(async (trx) => {
-      const last = await trx("mst_jadwal_karyawan").orderBy("id", "desc").first();
-      let n = 1;
-      if (last?.kode_jadwal) {
-        n = (parseInt(last.kode_jadwal.replace("JDW-", "")) || 0) + 1;
+      const rows = await trx("mst_jadwal_karyawan")
+        .where("kode_jadwal", "like", "JDW-%")
+        .select("kode_jadwal");
+
+      let maxNum = 0;
+      for (const row of rows) {
+        if (row.kode_jadwal) {
+          const match = String(row.kode_jadwal).match(/^JDW-(\d+)$/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+          }
+        }
       }
-      kode = `JDW-${String(n).padStart(3, "0")}`;
+
+      let candidateNum = maxNum + 1;
+      while (true) {
+        const candidateKode = `JDW-${String(candidateNum).padStart(3, "0")}`;
+        const exists = await trx("mst_jadwal_karyawan").where("kode_jadwal", candidateKode).first();
+        if (!exists) {
+          kode = candidateKode;
+          break;
+        }
+        candidateNum++;
+      }
 
       const oData = {
         kode_jadwal: kode,

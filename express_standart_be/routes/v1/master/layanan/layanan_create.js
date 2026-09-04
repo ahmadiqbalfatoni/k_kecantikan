@@ -37,13 +37,31 @@ router.post("/", async (req, res) => {
 
     let kodeLayanan = "";
     await DB.transaction(async (trx) => {
-      const lastRecord = await trx("mst_layanan").orderBy("id", "desc").first();
-      let nextSeq = 1;
-      if (lastRecord?.kode_layanan) {
-        const num = parseInt(lastRecord.kode_layanan.replace("LAY-", "")) || 0;
-        nextSeq = num + 1;
+      const rows = await trx("mst_layanan")
+        .where("kode_layanan", "like", "LAY-%")
+        .select("kode_layanan");
+
+      let maxNum = 0;
+      for (const row of rows) {
+        if (row.kode_layanan) {
+          const match = String(row.kode_layanan).match(/^LAY-(\d+)$/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+          }
+        }
       }
-      kodeLayanan = `LAY-${String(nextSeq).padStart(3, "0")}`;
+
+      let candidateNum = maxNum + 1;
+      while (true) {
+        const candidateKode = `LAY-${String(candidateNum).padStart(3, "0")}`;
+        const exists = await trx("mst_layanan").where("kode_layanan", candidateKode).first();
+        if (!exists) {
+          kodeLayanan = candidateKode;
+          break;
+        }
+        candidateNum++;
+      }
 
       const wajibKonsul = oPayload.wajib_konsultasi || "tidak";
       const oData = {

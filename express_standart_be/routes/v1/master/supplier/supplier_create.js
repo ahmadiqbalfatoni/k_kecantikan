@@ -17,10 +17,32 @@ router.post("/", async (req, res) => {
     if (cValidation) return res.status(422).json({ status: status.BAD_REQUEST, message: cValidation, datetime: formatDateSystem() });
     let kode = "";
     await DB.transaction(async (trx) => {
-      const last = await trx("mst_supplier").orderBy("id", "desc").first();
-      let n = 1;
-      if (last?.kode_supplier) { n = (parseInt(last.kode_supplier.replace("SUP-", "")) || 0) + 1; }
-      kode = `SUP-${String(n).padStart(3, "0")}`;
+      const rows = await trx("mst_supplier")
+        .where("kode_supplier", "like", "SUP-%")
+        .select("kode_supplier");
+
+      let maxNum = 0;
+      for (const row of rows) {
+        if (row.kode_supplier) {
+          const match = String(row.kode_supplier).match(/^SUP-(\d+)$/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+          }
+        }
+      }
+
+      let candidateNum = maxNum + 1;
+      while (true) {
+        const candidateKode = `SUP-${String(candidateNum).padStart(3, "0")}`;
+        const exists = await trx("mst_supplier").where("kode_supplier", candidateKode).first();
+        if (!exists) {
+          kode = candidateKode;
+          break;
+        }
+        candidateNum++;
+      }
+
       const oData = { kode_supplier: kode, nama: oPayload.nama, alamat: oPayload.alamat || null, no_hp: oPayload.no_hp || null, email: oPayload.email || null, status: oPayload.status, tz: oPayload.tz || "UTC", created_by: username, created_at: formatDateSystem(), updated_by: username, updated_at: formatDateSystem() };
       await trx("mst_supplier").insert(oData);
       await ChangesLog({ description: `Tambah Supplier ${kode}`, tableName: "mst_supplier", referenceCode: kode, action: "CREATE", dataBefore: null, dataAfter: oData, user: username, tz: oPayload.tz || "UTC" }, trx);

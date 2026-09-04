@@ -30,12 +30,31 @@ router.post("/", async (req, res) => {
 
     let kode = "";
     await DB.transaction(async (trx) => {
-      const last = await trx("mst_promo").orderBy("id", "desc").first();
-      let n = 1;
-      if (last?.kode_promo) {
-        n = (parseInt(last.kode_promo.replace("PRM-", "")) || 0) + 1;
+      const rows = await trx("mst_promo")
+        .where("kode_promo", "like", "PRM-%")
+        .select("kode_promo");
+
+      let maxNum = 0;
+      for (const row of rows) {
+        if (row.kode_promo) {
+          const match = String(row.kode_promo).match(/^PRM-(\d+)$/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+          }
+        }
       }
-      kode = `PRM-${String(n).padStart(3, "0")}`;
+
+      let candidateNum = maxNum + 1;
+      while (true) {
+        const candidateKode = `PRM-${String(candidateNum).padStart(3, "0")}`;
+        const exists = await trx("mst_promo").where("kode_promo", candidateKode).first();
+        if (!exists) {
+          kode = candidateKode;
+          break;
+        }
+        candidateNum++;
+      }
 
       const oData = {
         kode_promo: kode,

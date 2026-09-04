@@ -54,10 +54,31 @@ router.post("/", async (req, res) => {
     }
 
     await DB.transaction(async (trx) => {
-      const last = await trx("mst_paket_layanan").orderBy("id", "desc").first();
-      let n = 1;
-      if (last?.kode_paket_layanan) { n = (parseInt(last.kode_paket_layanan.replace("PKT-", "")) || 0) + 1; }
-      kode = `PKT-${String(n).padStart(3, "0")}`;
+      const rows = await trx("mst_paket_layanan")
+        .where("kode_paket_layanan", "like", "PKT-%")
+        .select("kode_paket_layanan");
+
+      let maxNum = 0;
+      for (const row of rows) {
+        if (row.kode_paket_layanan) {
+          const match = String(row.kode_paket_layanan).match(/^PKT-(\d+)$/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+          }
+        }
+      }
+
+      let candidateNum = maxNum + 1;
+      while (true) {
+        const candidateKode = `PKT-${String(candidateNum).padStart(3, "0")}`;
+        const exists = await trx("mst_paket_layanan").where("kode_paket_layanan", candidateKode).first();
+        if (!exists) {
+          kode = candidateKode;
+          break;
+        }
+        candidateNum++;
+      }
 
       const oData = {
         kode_paket_layanan: kode,

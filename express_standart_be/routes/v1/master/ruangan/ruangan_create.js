@@ -26,12 +26,31 @@ router.post("/", async (req, res) => {
 
     let kode = "";
     await DB.transaction(async (trx) => {
-      const last = await trx("mst_ruangan").orderBy("id", "desc").first();
-      let n = 1;
-      if (last?.kode_ruangan) {
-        n = (parseInt(last.kode_ruangan.replace("RNG-", "")) || 0) + 1;
+      const rows = await trx("mst_ruangan")
+        .where("kode_ruangan", "like", "RNG-%")
+        .select("kode_ruangan");
+
+      let maxNum = 0;
+      for (const row of rows) {
+        if (row.kode_ruangan) {
+          const match = String(row.kode_ruangan).match(/^RNG-(\d+)$/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+          }
+        }
       }
-      kode = `RNG-${String(n).padStart(3, "0")}`;
+
+      let candidateNum = maxNum + 1;
+      while (true) {
+        const candidateKode = `RNG-${String(candidateNum).padStart(3, "0")}`;
+        const exists = await trx("mst_ruangan").where("kode_ruangan", candidateKode).first();
+        if (!exists) {
+          kode = candidateKode;
+          break;
+        }
+        candidateNum++;
+      }
 
       const oData = {
         kode_ruangan: kode,
